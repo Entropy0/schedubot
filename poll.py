@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3.6
 
 import builtins
 
@@ -6,24 +6,85 @@ import parser
 
 from telegram import message, ParseMode, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
 
+VERSION = 0.1
+
 class Poll:
 
-    def __init__(self, name, creator, days):
+    def __init__(self, name, description, creator, days):
 
+        self.version = VERSION
         self.users = []
         self.longest_user = 0
         self.single_votes = dict()
         self.name = name
+        self.description = description
         self.creator = creator
         self.days = int(days)
         self.day_sum = [0] * self.days
         self.messages = []
         self.open = True
 
+    def __str__(self):
+        return self.__repr__()
+    def __repr__(self):
+        r = "{"
+        try:
+            r += "'version': "        + repr(self.version)
+        except AttributeError: 
+            pass
+        try:
+            r += ", 'users': "        + repr(self.users)
+        except AttributeError: 
+            pass
+        try:
+            r += ", 'longest_user': " + repr(self.longest_user)
+        except AttributeError: 
+            pass
+        try:
+            r += ", 'single_votes': " + repr(self.single_votes)
+        except AttributeError: 
+            pass
+        try:
+            r += ", 'name': "         + repr(self.name)
+        except AttributeError: 
+            pass
+        try:
+            r += ", 'description': "  + repr(self.description)
+        except AttributeError: 
+            pass
+        try:
+            r += ", 'creator': "      + repr(self.creator)
+        except AttributeError: 
+            pass
+        try:
+            r += ", 'days': "         + repr(self.days)
+        except AttributeError: 
+            pass
+        try:
+            r += ", 'day_sum': "      + repr(self.day_sum)
+        except AttributeError: 
+            pass
+        try:
+            r += ", 'messages': "     + repr(self.messages)
+        except AttributeError: 
+            pass
+        try:
+            r += ", 'open': "         + repr(self.open)
+        except AttributeError: 
+            pass
+        r += "}"
+        return r
+
     def get_creator(self):
         return self.creator
     def get_name(self):
         return self.name
+    def set_name(self, name):
+        self.name = name
+    def get_description(self):
+        return self.description
+    def set_description(self, name):
+        self.description = description
     def get_days(self):
         return self.days
     def knows_msg(self, msg):
@@ -41,7 +102,10 @@ class Poll:
         self.single_votes[user] = parser.reduce(str, self.days)
 
     def to_text(self):
-        out = f"*{self.name}* ({self.days})\n\n```\n"
+        try:
+            out = f"*{self.name}* ({self.days})\n{self.description}\n```\n"
+        except AttributeError:
+            out = f"*{self.name}* ({self.days})\n\n```\n"
         self.day_sum = [0] * self.days
         for user in self.users:
             out += f"{user:{self.longest_user}}: {parser.parse(self.single_votes[user])}\n"
