@@ -18,7 +18,8 @@ unicode_symbols = {
     '7': '7️⃣', 
     '8': '8️⃣', 
     '9': '9️⃣', 
-   '10': '🔟'
+   '10': '🔟',
+   '-1': '🚫'
 }
 
 def fix(st):
@@ -41,5 +42,5 @@ def reduce(st, l):
 def parse(st):
     out = ''
     for c in st:
-        out += unicode_symbols.get(str(c), '🚫')
+        out += unicode_symbols.get(str(c), '♾')
     return out
