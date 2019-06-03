@@ -6,7 +6,7 @@ import parser, poll
 import inspect, pprint
 
 from telegram.ext import Updater, CommandHandler, MessageHandler, ConversationHandler, CallbackQueryHandler, Filters, PicklePersistence
-from telegram import ParseMode, ReplyKeyboardMarkup, ReplyKeyboardRemove, Chat
+from telegram import ParseMode, ReplyKeyboardMarkup, ReplyKeyboardRemove, Chat, ForceReply
 from codecs import open
 from datetime import datetime
 
@@ -430,9 +430,6 @@ def print_poll_choice(update, context): # CHOOSING_POLL_PRINT --> DEFAULT
 
 def vote(update, context):       # DEFAULT --> TYPING_VOTE
     log_update(update, context)
-    if 'conversation_state' in context.user_data and not context.user_data['conversation_state'] == DEFAULT:
-        default_handler(update, context)
-        return
     if not 'polls' in context.user_data:
         context.user_data['polls'] = []
     if not 'polls' in context.chat_data:
@@ -564,7 +561,7 @@ def main():
 
     dp.add_handler(MessageHandler(Filters.text, default_handler))
 
-    dp.add_handler(CallbackQueryHandler(vote, pass_user_data=True, pass_chat_data=True))
+    dp.add_handler(CallbackQueryHandler(vote))
 
     dp.add_error_handler(error)
 
