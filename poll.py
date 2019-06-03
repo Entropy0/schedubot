@@ -31,47 +31,45 @@ class Poll:
         try:
             r += "'version': "        + repr(self.version)
         except AttributeError: 
-            pass
+            r += "'version': "        + "unknown"
         try:
             r += ", 'users': "        + repr(self.users)
-        except AttributeError: 
-            pass
-        try:
+        except AttributeError:
+            r += ", 'users': "        + "unknown"
             r += ", 'longest_user': " + repr(self.longest_user)
         except AttributeError: 
-            pass
+            r += ", 'longest_user': " + "unknown"
         try:
             r += ", 'single_votes': " + repr(self.single_votes)
         except AttributeError: 
-            pass
-        try:
+            r += ", 'single_votes': " + "unknown"
             r += ", 'name': "         + repr(self.name)
         except AttributeError: 
-            pass
+            r += ", 'name': "         + "unknown"
         try:
             r += ", 'description': "  + repr(self.description)
         except AttributeError: 
-            pass
+            r += ", 'description': "  + "unknown"
         try:
             r += ", 'creator': "      + repr(self.creator)
         except AttributeError: 
-            pass
+            r += ", 'creator': "      + "unknown"
         try:
             r += ", 'days': "         + repr(self.days)
         except AttributeError: 
-            pass
+            r += ", 'days': "         + "unknown"
         try:
             r += ", 'day_sum': "      + repr(self.day_sum)
         except AttributeError: 
-            pass
+            r += ", 'day_sum': "      + "unknown"
         try:
             r += ", 'messages': "     + repr(self.messages)
         except AttributeError: 
-            pass
+            r += ", 'messages': "     + "unknown"
         try:
             r += ", 'open': "         + repr(self.open)
         except AttributeError: 
-            pass
+            r += ", 'open': "         + "unknown"
         r += "}"
         return r
 
@@ -105,6 +103,7 @@ class Poll:
         try:
             out = f"*{self.name}* ({self.days})\n{self.description}\n```\n"
         except AttributeError:
+            self.description = ""
             out = f"*{self.name}* ({self.days})\n\n```\n"
         self.day_sum = [0] * self.days
         for user in self.users:
