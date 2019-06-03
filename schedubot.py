@@ -40,7 +40,7 @@ def log_update(update, context):
     if not DEBUG:
         return False
     with open(DEBUG_FILE, 'a', 'utf-8') as dbf:
-        dbf.write("-"*24 + "\n")
+        dbf.write("\n" + "-"*24 + "\n")
         dbf.write(f">  {datetime.now()}\n")
         try:
             dbf.write(f"> {update.message.from_user.name} called {inspect.currentframe().f_back.f_code.co_name} by sending the following:\n")
@@ -52,7 +52,7 @@ def log_update(update, context):
                 dbf.write(f"> {update.effective_user.name} called {inspect.currentframe().f_back.f_code.co_name} via unknown means.\n")
         try:
             dbf.write(f"\n> (conversation_state: {context.user_data['conversation_state']} - {states.get(context.user_data['conversation_state'], 'unknown')})\n")
-        except AttributeError:
+        except KeyError:
             dbf.write(f"\n> (conversation_state: unknown)\n")
         try:
             dbf.write("\n> chat_data:\n")
@@ -69,6 +69,9 @@ def log_update(update, context):
         dbf.write("\n\n\n")
         return True
 
+
+def debug(update, context):
+    log_update(update, context)
 
 def start(update, context):  # * --> DEFAULT
     log_update(update, context)
@@ -148,6 +151,64 @@ def create_description(update, context): # TYPING_DESCRIPTION --> DEFAULT
 
 
 
+def edit_name(update, context):        # DEFAULT                 --> CHOOSING_POLL_EDIT_NAME
+    log_update(update, context)
+    if 'conversation_state' in context.user_data and not context.user_data['conversation_state'] == DEFAULT:
+        default_handler(update, context)
+        return
+    if(update.effective_chat.type != "private"):
+        context.bot.send_message(update.message.from_user.id, "To reduce spam, please edit your polls here.")
+        return
+    if(not 'polls' in context.user_data):
+        context.user_data['polls'] = []
+        context.bot.send_message(update.message.from_user.id, "You don't have any open polls.")
+        return
+    elif(context.user_data['polls'] == []):
+        context.bot.send_message(update.message.from_user.id, "You don't have any open polls.")
+        return
+    else:
+        kbd = []
+        ctr = 0
+        for _poll in context.user_data['polls']:
+            if(_poll.get_creator().id == update.message.from_user.id):
+                kbd.append([f"{ctr}: {_poll.get_name()}\n"])
+            ctr += 1
+        if(kbd == []):
+            update.message.reply_text("You don't have any open polls.")
+            return DEFAULT
+        kbd.append(["/cancel"])
+        context.user_data['prompt'] = update.message.reply_text("Which of your polls would you like to edit?", reply_markup=ReplyKeyboardMarkup(kbd, one_time_keyboard=True, selective=True))
+        context.user_data['conversation_state'] = CHOOSING_POLL_EDIT_NAME
+
+def edit_name_choice(update, context): # CHOOSING_POLL_EDIT_NAME --> TYPING_POLL_EDIT_NAME
+    log_update(update, context)
+    i = int(update.message.text.split(':')[0])
+    if context.user_data['polls'][i]:
+        if not context.user_data['polls'][i].get_creator().id == update.message.from_user.id:
+            update.message.reply_text(f"ERROR:\n{i} ({update.message.text}): You don't have permission to modify that poll. Chose another one or /cancel.")
+            return
+        if 'prompt' in context.user_data:
+            context.user_data['prompt'].delete()
+            del context.user_data['prompt']
+        context.user_data['edit_poll'] = context.user_data['polls'][i]
+        context.user_data['prompt'] = update.message.reply_text(f"What would you like the new name for {context.user_data['polls'][i].get_name()} to be?")
+        context.user_data['conversation_state'] = TYPING_POLL_EDIT_NAME
+        return
+    else:
+        update.message.reply_text(f"ERROR:\n{i} ({update.message.text}): No such poll. Chose another one or /cancel.")
+        return
+
+def edit_name_final(update, context):  # TYPING_POLL_EDIT_NAME   --> DEFAULT
+    log_update(update, context)
+    context.user_data['edit_poll'].set_name(update.message.text)
+    context.user_data['edit_poll'].update()
+    del context.user_data['edit_poll']
+    context.user_data['prompt'].delete()
+    del context.user_data['prompt']
+    context.user_data['conversation_state'] = DEFAULT
+
+
+
 def edit_description(update, context):        # DEFAULT                        --> CHOOSING_POLL_EDIT_DESCRIPTION
     log_update(update, context)
     if 'conversation_state' in context.user_data and not context.user_data['conversation_state'] == DEFAULT:
@@ -166,16 +227,16 @@ def edit_description(update, context):        # DEFAULT                        -
     else:
         kbd = []
         ctr = 0
-        for poll in context.user_data['polls']:
-            if(poll.get_creator().id == update.message.from_user.id):
-                kbd.append([f"{ctr}: {poll.get_name()}\n"])
+        for _poll in context.user_data['polls']:
+            if(_poll.get_creator().id == update.message.from_user.id):
+                kbd.append([f"{ctr}: {_poll.get_name()}\n"])
             ctr += 1
         if(kbd == []):
             update.message.reply_text("You don't have any open polls.")
             return DEFAULT
         kbd.append(["/cancel"])
         context.user_data['prompt'] = update.message.reply_text("Which of your polls would you like to edit?", reply_markup=ReplyKeyboardMarkup(kbd, one_time_keyboard=True, selective=True))
-        context.user_data['conversation_state'] = CHOOSING_POLL_EDIT_NAME
+        context.user_data['conversation_state'] = CHOOSING_POLL_EDIT_DESCRIPTION
 
 def edit_description_choice(update, context): # CHOOSING_POLL_EDIT_DESCRIPTION --> TYPING_POLL_EDIT_DESCRIPTION
     log_update(update, context)
@@ -187,7 +248,7 @@ def edit_description_choice(update, context): # CHOOSING_POLL_EDIT_DESCRIPTION -
         if 'prompt' in context.user_data:
             context.user_data['prompt'].delete()
             del context.user_data['prompt']
-        context.user_data['edit_poll'] = poll
+        context.user_data['edit_poll'] = context.user_data['polls'][i]
         context.user_data['prompt'] = update.message.reply_text(f"What would you like the new description for {context.user_data['polls'][i].get_name()} to be?")
         context.user_data['conversation_state'] = TYPING_POLL_EDIT_DESCRIPTION
         return
@@ -224,9 +285,9 @@ def close(update, context):        # DEFAULT --> CHOOSING_POLL_CLOSE
     else:
         kbd = []
         ctr = 0
-        for poll in context.user_data['polls']:
-            if(poll.get_creator().id == update.message.from_user.id):
-                kbd.append([f"{ctr}: {poll.get_name()}\n"])
+        for _poll in context.user_data['polls']:
+            if(_poll.get_creator().id == update.message.from_user.id):
+                kbd.append([f"{ctr}: {_poll.get_name()}\n"])
             ctr += 1
         if(kbd == []):
             update.message.reply_text("You don't have any open polls.")
@@ -280,8 +341,8 @@ def add_poll_to_chat(update, context):        # DEFAULT --> CHOOSING_POLL_ADD
     else:
         kbd = []
         ctr = 0
-        for poll in context.user_data['polls']:
-            kbd.append([f"{ctr}: {poll.get_name()}\n"])
+        for _poll in context.user_data['polls']:
+            kbd.append([f"{ctr}: {_poll.get_name()}\n"])
             ctr += 1
         kbd.append(["/cancel"])
         context.user_data['prompt'] = update.message.reply_text("Which poll would you like to add to this chat?", reply_markup=ReplyKeyboardMarkup(kbd, one_time_keyboard=True, selective=True))
@@ -334,9 +395,9 @@ def print_poll(update, context):        # DEFAULT --> CHOOSING_POLL_PRINT
         data = context.chat_data
     kbd = []
     ctr = 0
-    for poll in data['polls']:
-        if(poll.is_open()):
-            kbd.append([f"{ctr}: {poll.get_name()}\n"])
+    for _poll in data['polls']:
+        if(_poll.is_open()):
+            kbd.append([f"{ctr}: {_poll.get_name()}\n"])
             ctr += 1
         else:
             data['polls'].remove(poll)
@@ -376,37 +437,37 @@ def vote(update, context):       # DEFAULT --> TYPING_VOTE
         context.user_data['polls'] = []
     if not 'polls' in context.chat_data:
         context.chat_data['polls'] = []
-    for poll in context.chat_data['polls']:
-        if poll.knows_msg(update.callback_query.message):
-            if not poll.is_open():
-                context.chat_data['polls'].remove(poll)
-                if poll in context.user_data['polls']:
-                    context.user_data['polls'].remove(poll)
+    for _poll in context.chat_data['polls']:
+        if _poll.knows_msg(update.callback_query.message):
+            if not _poll.is_open():
+                context.chat_data['polls'].remove(_poll)
+                if _poll in context.user_data['polls']:
+                    context.user_data['polls'].remove(_poll)
                 context.bot.send_message(update.callback_query.from_user.id, "Voting for that poll has ended.")
                 return
-            if not poll in context.user_data['polls']:
-                context.user_data['polls'].append(poll)
-            context.user_data['active_poll'] = poll
+            if not _poll in context.user_data['polls']:
+                context.user_data['polls'].append(_poll)
+            context.user_data['active_poll'] = _poll
             if not update.effective_chat.type == "private":
-                poll.print(context.bot, Chat(update.callback_query.from_user.id, "private"), votable=False)
-            prompt = context.bot.send_message(update.callback_query.from_user.id, f"Please enter your votes for \"{poll.get_name()}\":\n\n(Write a '+' for a column you want to agree to, a '-' for one you disagree with or a '?' for one you are not sure about. Everything alse gets ignored. Omitting votes will fill the remainder with '?'s, superfluous votes are discarded.\nYou can always correct your vote as long as the poll is still open.\n/cancel to cancel voting")
+                _poll.print(context.bot, Chat(update.callback_query.from_user.id, "private"), votable=False)
+            prompt = context.bot.send_message(update.callback_query.from_user.id, f"Please enter your votes for \"{_poll.get_name()}\":\n\n(Write a '+' for a column you want to agree to, a '-' for one you disagree with or a '?' for one you are not sure about. Everything alse gets ignored. Omitting votes will fill the remainder with '?'s, superfluous votes are discarded.\nYou can always correct your vote as long as the poll is still open.\n/cancel to cancel voting")
             context.user_data['active_poll_prompt'] = prompt
             context.user_data['conversation_state'] = TYPING_VOTE
             return
-    for poll in context.user_data['polls']:
-        if poll.knows_msg(update.callback_query.message):
-            if not poll.is_open():
-                context.user_data['polls'].remove(poll)
-                if(poll in context.chat_data['polls']):
-                    context.chat_data['polls'].remove(poll)
+    for _poll in context.user_data['polls']:
+        if _poll.knows_msg(update.callback_query.message):
+            if not _poll.is_open():
+                context.user_data['polls'].remove(_poll)
+                if _poll in context.chat_data['polls']:
+                    context.chat_data['polls'].remove(_poll)
                 context.bot.send_message(update.callback_query.from_user.id, "Voting for that poll has ended.")
                 return
-            if not poll in context.chat_data['polls']:
-                context.chat_data['polls'].append(poll)
-            context.user_data['active_poll'] = poll
+            if not _poll in context.chat_data['polls']:
+                context.chat_data['polls'].append(_poll)
+            context.user_data['active_poll'] = _poll
             if not update.effective_chat.type == "private":
                 poll.print(context.bot, Chat(update.callback_query.from_user.id, "private"), votable=False)
-            prompt = context.bot.send_message(update.callback_query.from_user.id, f"Please enter your votes for \"{poll.get_name()}\":\n\n(Write a '+' for a column you want to agree to, a '-' for one you disagree with or a '?' for one you are not sure about. Everything alse gets ignored. Omitting votes will fill the remainder with '?'s, superfluous votes are discarded.\nYou can always correct your vote as long as the poll is still open.\n/cancel to cancel voting")
+            prompt = context.bot.send_message(update.callback_query.from_user.id, f"Please enter your votes for \"{_poll.get_name()}\":\n\n(Write a '+' for a column you want to agree to, a '-' for one you disagree with or a '?' for one you are not sure about. Everything alse gets ignored. Omitting votes will fill the remainder with '?'s, superfluous votes are discarded.\nYou can always correct your vote as long as the poll is still open.\n/cancel to cancel voting")
             context.user_data['active_poll_prompt'] = prompt
             context.user_data['conversation_state'] = TYPING_VOTE
             return
@@ -448,8 +509,8 @@ def default_handler(update, context):
             CHOOSING_POLL_ADD:              add_poll_to_chat_choice,
             CHOOSING_POLL_CLOSE:            close_choice,
             CHOOSING_POLL_PRINT:            print_poll_choice,
-            CHOOSING_POLL_EDIT_NAME:        err,
-            TYPING_POLL_EDIT_NAME:          err,
+            CHOOSING_POLL_EDIT_NAME:        edit_name_choice,
+            TYPING_POLL_EDIT_NAME:          edit_name_final,
             CHOOSING_POLL_EDIT_DESCRIPTION: edit_description_choice,
             TYPING_POLL_EDIT_DESCRIPTION:   edit_description_final,
             TYPING_VOTE:                    vote_enter,
@@ -496,8 +557,10 @@ def main():
     dp.add_handler(CommandHandler("print", print_poll))                  # DEFAULT --> CHOOSING_POLL_PRINT
     dp.add_handler(CommandHandler("close", close))                       # DEFAULT --> CHOOSING_POLL_CLOSE
     dp.add_handler(CommandHandler("edit_description", edit_description)) # DEFAULT --> CHOOSING_POLL_EDIT_DESCRIPTION
+    dp.add_handler(CommandHandler("edit_name", edit_name))               # DEFAULT --> CHOOSING_POLL_EDIT_NAME
     dp.add_handler(CommandHandler("cancel", reset))                      # *       --> DEFAULT
     dp.add_handler(CommandHandler("reset", reset))                       # *       --> DEFAULT
+    dp.add_handler(CommandHandler("debug", debug))                       # *       --> *
 
     dp.add_handler(MessageHandler(Filters.text, default_handler))
 

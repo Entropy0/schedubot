@@ -81,7 +81,7 @@ class Poll:
         self.name = name
     def get_description(self):
         return self.description
-    def set_description(self, name):
+    def set_description(self, description):
         self.description = description
     def get_days(self):
         return self.days
