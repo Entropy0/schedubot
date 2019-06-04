@@ -1,9 +1,11 @@
 #!/usr/bin/env python3.6
 
 import sys
+import pickle
 import logging
-import parser, poll
 import inspect, pprint
+
+import parser, poll
 
 from telegram.ext import Updater, CommandHandler, MessageHandler, ConversationHandler, CallbackQueryHandler, Filters, PicklePersistence
 from telegram import ParseMode, ReplyKeyboardMarkup, ReplyKeyboardRemove, Chat, ForceReply
@@ -67,11 +69,21 @@ def log_update(update, context):
         dbf.write("\n> raw update:\n")
         dbf.write(str(update))
         dbf.write("\n\n\n")
-        return True
+    return True
 
+def log_text(str):
+    if not DEBUG:
+        return False
+    with open(DEBUG_FILE, 'a', 'utf-8') as dbf:
+        dbf.write("\n" + "-"*24 + "\n")
+        dbf.write(f">  {datetime.now()}\n")
+        dbf.write(str)
+        dbf.write("\n\n\n")
+    return True
 
 def debug(update, context):
     log_update(update, context)
+    context.bot.send_message(Chat(update.message.from_user.id, "private")., "To reduce spam, please edit your polls here.")
 
 def start(update, context):  # * --> DEFAULT
     log_update(update, context)
@@ -122,7 +134,7 @@ def create(update, context):             # DEFAULT            --> TYPING_NAME
         return
     if(not 'polls' in context.user_data):
         context.user_data['polls'] = []
-    update.message.reply_text("Please enter the name for your poll:")
+    update.message.reply_text("Please enter the name for your poll:", reply_markup=ReplyKeyboardRemove(selective=True))
     context.user_data['conversation_state'] = TYPING_NAME
 
 def create_name(update, context):        # TYPING_NAME        --> TYPING_LENGTH
@@ -143,10 +155,10 @@ def create_length(update, context):      # TYPING_LENGTH      --> TYPING_DESCRIP
 def create_description(update, context): # TYPING_DESCRIPTION --> DEFAULT
     log_update(update, context)
     context.user_data['create_description'] = update.message.text
-    new_poll = poll.Poll(context.user_data['create_name'], context.user_data['create_description'], update.message.from_user, context.user_data['create_length'])
+    new_poll = poll.Poll(context.user_data['create_name'], context.user_data['create_description'], update.message.from_user.id, context.user_data['create_length'])
     context.user_data['polls'].append(new_poll)
     new_poll.print(context.bot, update.effective_chat)
-    update.message.reply_text(f"Created poll named {context.user_data['create_name']} with {context.user_data['create_length']} columns.\nYou can now /add this poll to whichever chat(s) you want to use it in.")
+    update.message.reply_text(f"Created poll named {context.user_data['create_name']} with {context.user_data['create_length']} columns.\nYou can now /add this poll to whichever chat(s) you want to use it in.", reply_markup=ReplyKeyboardRemove(selective=True))
     context.user_data['conversation_state'] = DEFAULT
 
 
@@ -170,7 +182,7 @@ def edit_name(update, context):        # DEFAULT                 --> CHOOSING_PO
         kbd = []
         ctr = 0
         for _poll in context.user_data['polls']:
-            if(_poll.get_creator().id == update.message.from_user.id):
+            if(_poll.get_creator_id() == update.message.from_user.id):
                 kbd.append([f"{ctr}: {_poll.get_name()}\n"])
             ctr += 1
         if(kbd == []):
@@ -184,14 +196,14 @@ def edit_name_choice(update, context): # CHOOSING_POLL_EDIT_NAME --> TYPING_POLL
     log_update(update, context)
     i = int(update.message.text.split(':')[0])
     if context.user_data['polls'][i]:
-        if not context.user_data['polls'][i].get_creator().id == update.message.from_user.id:
+        if not context.user_data['polls'][i].get_creator_id() == update.message.from_user.id:
             update.message.reply_text(f"ERROR:\n{i} ({update.message.text}): You don't have permission to modify that poll. Chose another one or /cancel.")
             return
         if 'prompt' in context.user_data:
             context.user_data['prompt'].delete()
             del context.user_data['prompt']
         context.user_data['edit_poll'] = context.user_data['polls'][i]
-        context.user_data['prompt'] = update.message.reply_text(f"What would you like the new name for {context.user_data['polls'][i].get_name()} to be?")
+        context.user_data['prompt'] = update.message.reply_text(f"What would you like the new name for {context.user_data['polls'][i].get_name()} to be?", reply_markup=ReplyKeyboardRemove(selective=True))
         context.user_data['conversation_state'] = TYPING_POLL_EDIT_NAME
         return
     else:
@@ -201,7 +213,7 @@ def edit_name_choice(update, context): # CHOOSING_POLL_EDIT_NAME --> TYPING_POLL
 def edit_name_final(update, context):  # TYPING_POLL_EDIT_NAME   --> DEFAULT
     log_update(update, context)
     context.user_data['edit_poll'].set_name(update.message.text)
-    context.user_data['edit_poll'].update()
+    context.user_data['edit_poll'].update(context.bot)
     del context.user_data['edit_poll']
     context.user_data['prompt'].delete()
     del context.user_data['prompt']
@@ -228,7 +240,7 @@ def edit_description(update, context):        # DEFAULT                        -
         kbd = []
         ctr = 0
         for _poll in context.user_data['polls']:
-            if(_poll.get_creator().id == update.message.from_user.id):
+            if(_poll.get_creator_id() == update.message.from_user.id):
                 kbd.append([f"{ctr}: {_poll.get_name()}\n"])
             ctr += 1
         if(kbd == []):
@@ -242,14 +254,14 @@ def edit_description_choice(update, context): # CHOOSING_POLL_EDIT_DESCRIPTION -
     log_update(update, context)
     i = int(update.message.text.split(':')[0])
     if context.user_data['polls'][i]:
-        if not context.user_data['polls'][i].get_creator().id == update.message.from_user.id:
+        if not context.user_data['polls'][i].get_creator_id() == update.message.from_user.id:
             update.message.reply_text(f"ERROR:\n{i} ({update.message.text}): You don't have permission to modify that poll. Chose another one or /cancel.")
             return
         if 'prompt' in context.user_data:
             context.user_data['prompt'].delete()
             del context.user_data['prompt']
         context.user_data['edit_poll'] = context.user_data['polls'][i]
-        context.user_data['prompt'] = update.message.reply_text(f"What would you like the new description for {context.user_data['polls'][i].get_name()} to be?")
+        context.user_data['prompt'] = update.message.reply_text(f"What would you like the new description for {context.user_data['polls'][i].get_name()} to be?", reply_markup=ReplyKeyboardRemove(selective=True))
         context.user_data['conversation_state'] = TYPING_POLL_EDIT_DESCRIPTION
         return
     else:
@@ -259,7 +271,7 @@ def edit_description_choice(update, context): # CHOOSING_POLL_EDIT_DESCRIPTION -
 def edit_description_final(update, context):  # TYPING_POLL_EDIT_DESCRIPTION   --> DEFAULT
     log_update(update, context)
     context.user_data['edit_poll'].set_description(update.message.text)
-    context.user_data['edit_poll'].update()
+    context.user_data['edit_poll'].update(context.bot)
     del context.user_data['edit_poll']
     context.user_data['prompt'].delete()
     del context.user_data['prompt']
@@ -286,7 +298,7 @@ def close(update, context):        # DEFAULT --> CHOOSING_POLL_CLOSE
         kbd = []
         ctr = 0
         for _poll in context.user_data['polls']:
-            if(_poll.get_creator().id == update.message.from_user.id):
+            if(_poll.get_creator_id() == update.message.from_user.id):
                 kbd.append([f"{ctr}: {_poll.get_name()}\n"])
             ctr += 1
         if(kbd == []):
@@ -303,7 +315,7 @@ def close_choice(update, context): # CHOOSING_POLL_CLOSE --> DEFAULT
         return
     i = int(update.message.text.split(':')[0])
     if i < len(context.user_data['polls']):
-        if not context.user_data['polls'][i].get_creator().id == update.message.from_user.id:
+        if not context.user_data['polls'][i].get_creator_id() == update.message.from_user.id:
             update.message.reply_text(f"ERROR:\n{i} {update.message.text} --- You don't have permission to close that poll. Chose another one or /cancel.")
             return
         if('polls' in context.chat_data and context.user_data['polls'][i] in context.chat_data['polls']):
@@ -311,8 +323,9 @@ def close_choice(update, context): # CHOOSING_POLL_CLOSE --> DEFAULT
         if 'prompt' in context.user_data:
             context.user_data['prompt'].delete()
             del context.user_data['prompt']
-        context.user_data['polls'][i].close(update.message.from_user)
+        context.user_data['polls'][i].close(update.message.from_user, context.bot)
         context.user_data['polls'].remove(context.user_data['polls'][i])
+        update.message.reply_text(update.effective_user.id, "resetting...", reply_markup=ReplyKeyboardRemove(selective=True)).delete()
         context.user_data['conversation_state'] = DEFAULT
         return
     else:
@@ -362,6 +375,7 @@ def add_poll_to_chat_choice(update, context): # CHOOSING_POLL_ADD --> DEFAULT
         if 'prompt' in context.user_data:
             context.user_data['prompt'].delete()
             del context.user_data['prompt']
+        update.message.reply_text(update.effective_user.id, "resetting...", reply_markup=ReplyKeyboardRemove(selective=True)).delete()
         context.user_data['conversation_state'] = DEFAULT
         return
     else:
@@ -420,6 +434,7 @@ def print_poll_choice(update, context): # CHOOSING_POLL_PRINT --> DEFAULT
     i = int(update.message.text.split(':')[0])
     if i < len(data['polls']):
         data['polls'][i].print(context.bot, update.effective_chat)
+        update.message.reply_text(update.effective_user.id, "resetting...", reply_markup=ReplyKeyboardRemove(selective=True)).delete()
         context.user_data['conversation_state'] = DEFAULT
         return
     else:
@@ -428,7 +443,7 @@ def print_poll_choice(update, context): # CHOOSING_POLL_PRINT --> DEFAULT
 
 
 
-def vote(update, context):       # DEFAULT --> TYPING_VOTE
+"""def vote(update, context):       # DEFAULT --> TYPING_VOTE
     log_update(update, context)
     if not 'polls' in context.user_data:
         context.user_data['polls'] = []
@@ -447,6 +462,7 @@ def vote(update, context):       # DEFAULT --> TYPING_VOTE
             context.user_data['active_poll'] = _poll
             if not update.effective_chat.type == "private":
                 _poll.print(context.bot, Chat(update.callback_query.from_user.id, "private"), votable=False)
+            log_text(context.bot.get_me().link)
             prompt = context.bot.send_message(update.callback_query.from_user.id, f"Please enter your votes for \"{_poll.get_name()}\":\n\n(Write a '+' for a column you want to agree to, a '-' for one you disagree with or a '?' for one you are not sure about. Everything alse gets ignored. Omitting votes will fill the remainder with '?'s, superfluous votes are discarded.\nYou can always correct your vote as long as the poll is still open.\n/cancel to cancel voting")
             context.user_data['active_poll_prompt'] = prompt
             context.user_data['conversation_state'] = TYPING_VOTE
@@ -469,13 +485,13 @@ def vote(update, context):       # DEFAULT --> TYPING_VOTE
             context.user_data['conversation_state'] = TYPING_VOTE
             return
     context.bot.send_message(update.callback_query.from_user.id, "Something went wrong. Try adding this poll to the chat again.\nSorry for the inconvenience.")
-    return
+    return"""
 
 def vote_enter(update, context): # TYPING_VOTE --> DEFAULT
     if update.effective_chat.type == "private":
         if 'active_poll' in context.user_data:
             context.user_data['active_poll'].vote(update.message.from_user.name, update.message.text)
-            context.user_data['active_poll'].update()
+            context.user_data['active_poll'].update(context.bot)
             del context.user_data['active_poll']
             context.user_data['active_poll_prompt'].delete()
             del context.user_data['active_poll_prompt']
@@ -550,6 +566,7 @@ def main():
     dp.add_handler(CommandHandler("init", start))                        # *       --> DEFAULT
     dp.add_handler(CommandHandler("help", help))                         # *       --> *
     dp.add_handler(CommandHandler("create", create))                     # DEFAULT --> TYPING_NAME
+    dp.add_handler(CommandHandler("vote", vote))                         # *       --> TYPING_VOTE
     dp.add_handler(CommandHandler("add", add_poll_to_chat))              # DEFAULT --> CHOOSING_POLL_ADD
     dp.add_handler(CommandHandler("print", print_poll))                  # DEFAULT --> CHOOSING_POLL_PRINT
     dp.add_handler(CommandHandler("close", close))                       # DEFAULT --> CHOOSING_POLL_CLOSE
@@ -561,7 +578,7 @@ def main():
 
     dp.add_handler(MessageHandler(Filters.text, default_handler))
 
-    dp.add_handler(CallbackQueryHandler(vote))
+    #dp.add_handler(CallbackQueryHandler(vote))
 
     dp.add_error_handler(error)
 
