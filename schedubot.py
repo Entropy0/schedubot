@@ -654,8 +654,6 @@ def main():
 
     dp.add_handler(MessageHandler(Filters.text, default_handler))
 
-    #dp.add_handler(CallbackQueryHandler(vote))
-
     dp.add_error_handler(error)
 
     updater.start_polling()
