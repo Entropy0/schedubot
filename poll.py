@@ -1,12 +1,10 @@
 #!/usr/bin/env python3.6
 
-import builtins
-import pickle
 from uuid import uuid4
 
 import parser
 
-from telegram import message, ParseMode, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup, error
+from telegram import ParseMode, InlineKeyboardButton, InlineKeyboardMarkup, error
 
 VERSION = 0.2
 
@@ -33,57 +31,50 @@ class Poll:
         r = "{"
         try:
             r += "'version': "        + repr(self.version)
-        except AttributeError: 
+        except AttributeError:
             r += "'version': "        + "unknown"
         try:
             r += ", 'users': "        + repr(self.users)
         except AttributeError:
             r += ", 'users': "        + "unknown"
+        try:
             r += ", 'longest_user': " + repr(self.longest_user)
-        except AttributeError: 
+        except AttributeError:
             r += ", 'longest_user': " + "unknown"
         try:
             r += ", 'single_votes': " + repr(self.single_votes)
-        except AttributeError: 
+        except AttributeError:
             r += ", 'single_votes': " + "unknown"
+        try:
             r += ", 'name': "         + repr(self.name)
-        except AttributeError: 
+        except AttributeError:
             r += ", 'name': "         + "unknown"
         try:
             r += ", 'description': "  + repr(self.description)
-        except AttributeError: 
+        except AttributeError:
             r += ", 'description': "  + "unknown"
         try:
             r += ", 'creator_if': "   + repr(self.creator_id)
-        except AttributeError: 
+        except AttributeError:
             r += ", 'creator_id': "   + "unknown"
         try:
             r += ", 'days': "         + repr(self.days)
-        except AttributeError: 
+        except AttributeError:
             r += ", 'days': "         + "unknown"
         try:
             r += ", 'day_sum': "      + repr(self.day_sum)
-        except AttributeError: 
+        except AttributeError:
             r += ", 'day_sum': "      + "unknown"
         try:
             r += ", 'messages': "     + repr(self.messages)
-        except AttributeError: 
+        except AttributeError:
             r += ", 'messages': "     + "unknown"
         try:
             r += ", 'open': "         + repr(self.open)
-        except AttributeError: 
+        except AttributeError:
             r += ", 'open': "         + "unknown"
         r += "}"
         return r
-
-    def save(self, prefix):
-        with open(f'{prefix}_{self.id}', 'wb') as file:
-            file.write(pickle.dumps(self))
-
-    @classmethod
-    def load(_class, prefix, id):
-        with open(f'{prefix}_{id}', 'rb') as file:
-            return pickle.loads(file.read())
 
     def get_id(self):
         return self.id
@@ -107,14 +98,14 @@ class Poll:
     def is_open(self):
         return self.open
 
-    def vote(self, user, str):
-        if(not self.open):
-            return False
-        if(not(user in self.users)):
+    def vote(self, user, st):
+        if not self.open:
+            return
+        if not user in self.users:
             self.users.append(user)
-            if(len(user)>self.longest_user):
+            if len(user) > self.longest_user:
                 self.longest_user = len(user)
-        self.single_votes[user] = parser.reduce(str, self.days)
+        self.single_votes[user] = parser.reduce(st, self.days)
 
     def to_text(self):
         try:
@@ -126,7 +117,7 @@ class Poll:
         for user in self.users:
             out += f"{user:{self.longest_user}}: {parser.parse(self.single_votes[user])}\n"
             for i in range(self.days):
-                if(self.single_votes[user][i:i+1]=='+'):
+                if self.single_votes[user][i:i+1] == '+':
                     self.day_sum[i] += 1
         out += "\n"
         out += " " * (self.longest_user + 2) + parser.parse(self.day_sum) + "```"
@@ -168,7 +159,7 @@ class Poll:
         self.messages.append(msg)
 
     def close(self, user_id, bot):
-        if(user_id == self.creator_id):
+        if user_id == self.creator_id:
             self.open = False
             self.update(bot)
             self.messages = []
