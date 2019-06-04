@@ -1,22 +1,14 @@
 #!/usr/bin/env python3.6
 
 import builtins
-import pickle, base64
+import pickle
+from uuid import uuid4
 
 import parser
 
-from telegram import message, ParseMode, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import message, ParseMode, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup, error
 
 VERSION = 0.2
-
-class protoPoll:
-    def __init__(self, name, description, creator_id, days, messages, single_votes):
-        self.n = name
-        self.de = description
-        self.c = creator_id
-        self.d = days
-        self.m = messages
-        self.s = single_votes
 
 class Poll:
 
@@ -33,6 +25,7 @@ class Poll:
         self.day_sum = [0] * self.days
         self.messages = []
         self.open = True
+        self.id = str(uuid4())
 
     def __str__(self):
         return self.__repr__()
@@ -83,23 +76,20 @@ class Poll:
         r += "}"
         return r
 
-    def encode(self):
-        proto_self = protoPoll( self.name, self.description, self.creator_id, self.days, self.messages, self.single_votes)
-        serialized = base64.urlsafe_b64encode(pickle.dumps(proto_self))
-        return serialized
+    def save(self, prefix):
+        with open(f'{prefix}_{self.id}', 'wb') as file:
+            file.write(pickle.dumps(self))
 
     @classmethod
-    def decode(_class, serialized):
-        proto = pickle.loads(base64.urlsafe_b64decode(serialized))
-        _poll = _class(proto.n, proto.de, proto.c, proto.d)
-        for msg in proto.m:
-            _poll.add_msg(msg)
-        for u, v in proto.s.items():
-            _poll.vote(u,v)
-        return _poll
+    def load(_class, prefix, id):
+        with open(f'{prefix}_{id}', 'rb') as file:
+            return pickle.loads(file.read())
 
-
-
+    def get_id(self):
+        return self.id
+    def new_id(self):   # really?
+        self.id = str(uuid4())
+        return self.id
     def get_creator_id(self):
         return self.creator_id
     def get_name(self):
@@ -128,7 +118,7 @@ class Poll:
 
     def to_text(self):
         try:
-            out = f"*{self.name}* ({self.days})\n{self.description}\n```\n"
+            out = f"*{self.name}*{' (closed)' if not self.open else ''} ({self.days})\n{self.description}\n```\n"
         except AttributeError:
             self.description = ""
             out = f"*{self.name}* ({self.days})\n\n```\n"
@@ -145,11 +135,17 @@ class Poll:
     def update(self, bot):
         if self.open:
             for msg in self.messages:
-                kbd = InlineKeyboardMarkup([[InlineKeyboardButton("vote", url=msg.from_user.link + "?/help")]])
-                bot.edit_message_text(msg[0], msg[1], self.to_text(), parse_mode=ParseMode.MARKDOWN, reply_markup=kbd)
+                kbd = InlineKeyboardMarkup([[InlineKeyboardButton("vote", url=f'{bot.get_me().link}?start={self.id}')]])
+                try:
+                    bot.edit_message_text(self.to_text(), chat_id=msg[0], message_id=msg[1], parse_mode=ParseMode.MARKDOWN, reply_markup=kbd)
+                except error.BadRequest:
+                    pass
         else:
             for msg in self.messages:
-                bot.edit_message_text(msg[0], msg[1], self.to_text(), parse_mode=ParseMode.MARKDOWN)
+                try:
+                    bot.edit_message_text(self.to_text(), chat_id=msg[0], message_id=msg[1], parse_mode=ParseMode.MARKDOWN)
+                except error.BadRequest:
+                    pass
 
     def update_or_print(self, bot, chat):
         if self.messages:
@@ -159,12 +155,13 @@ class Poll:
 
     def print(self, bot, chat, votable=True):
         if(self.open and votable):
-            kbd = InlineKeyboardMarkup([[InlineKeyboardButton("vote", url=bot.get_me().link + "?/help")]])
+            kbd = InlineKeyboardMarkup([[InlineKeyboardButton("vote", url=f'{bot.get_me().link}?start={self.id}')]])
             msg = bot.send_message(chat.id, self.to_text(), parse_mode=ParseMode.MARKDOWN, reply_markup=kbd)
             self.add_msg([msg.chat_id, msg.message_id])
         else:
             msg = bot.send_message(chat.id, self.to_text(), parse_mode=ParseMode.MARKDOWN, reply_markup=None)
             self.add_msg([msg.chat_id, msg.message_id])
+        return msg
 
 
     def add_msg(self, msg):
@@ -174,6 +171,7 @@ class Poll:
         if(user_id == self.creator_id):
             self.open = False
             self.update(bot)
+            self.messages = []
             return True
         else:
             return False

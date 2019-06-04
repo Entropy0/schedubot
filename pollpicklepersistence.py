@@ -1,11 +1,15 @@
 #!/usr/bin/env python3.6
 
+import pickle
+from collections import defaultdict
+from copy import deepcopy
+
 from telegram.ext import PicklePersistence
 
 class PollPicklePersistence(PicklePersistence):
 
-    def __init__(self, filename , store_user_data=True, store_chat_data=True, singe_file=True, on_flush=False):
-        super().__init__(self, filename , store_user_data=True, store_chat_data=True, singe_file=True, on_flush=False)
+    def __init__(self, filename, store_user_data=True, store_chat_data=True, singe_file=True, on_flush=False):
+        super().__init__(filename, store_user_data, store_chat_data, singe_file, on_flush)
         self.poll_data = None
 
     def load_singlefile(self):
@@ -54,6 +58,17 @@ class PollPicklePersistence(PicklePersistence):
         if self.poll_data.get(poll_id) == data:
             return
         self.poll_data[poll_id] = data
+        if not self.on_flush:
+            if not self.single_file:
+                filename = f'{self.filename}_poll_data'
+                self.dump_file(filename, self.poll_data)
+            else:
+                self.dump_singlefile()
+
+
+    def drop_poll_data(self, poll_id):
+        if poll_id in self.poll_data:
+            del self.poll_data[poll_id]
         if not self.on_flush:
             if not self.single_file:
                 filename = f'{self.filename}_poll_data'
