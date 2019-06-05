@@ -1,4 +1,9 @@
 #!/usr/bin/env python3.6
+"""Poll class used by Schedubot.
+
+Attributes:
+    VERSION (str): Version string
+"""
 
 from uuid import uuid4
 
@@ -10,8 +15,33 @@ VERSION = 0.2
 
 class Poll:
 
+    """Poll class used by Schedubot.
+    
+    Attributes:
+        id (str): Uuid(4) of this poll.
+        name (str): The name for this poll.
+        days (int): Number of days/ columns.
+        description (str): The description for this poll.
+        creator_id (int): Id of the user that created the poll.
+        open (bool): Whether votes can be cast for this poll.
+        users (list of str): Every user that has voted on this poll.
+        longest_user (int): Longest username's length.
+        single_votes (dict of str: str): A list of every user's votes.
+        day_sum (list of int): How many users voted '+' for any given day.
+        messages (list of list of int): List of messages to keep track of.
+            Contains the chat_id and message_id.
+        version (str): The version of this file that created the poll.
+    """
+    
     def __init__(self, name, description, creator_id, days):
-
+        """__init__
+        
+        Args:
+            name (str): The name for this poll.
+            description (str): The description for this poll.
+            creator_id (int): Id of the user that created the poll.
+            days (int): Number of days/ columns.
+        """
         self.version = VERSION
         self.users = []
         self.longest_user = 0
@@ -26,88 +56,162 @@ class Poll:
         self.id = str(uuid4())
 
     def __str__(self):
+        """__str__
+        
+        Returns:
+            str: A string representing this poll.
+        """
         return self.__repr__()
     def __repr__(self):
-        r = "{"
+        """__repr__
+        
+        Returns:
+            str: A string representing this poll.
+        """
+        representation = "{"
         try:
-            r += "'version': "        + repr(self.version)
+            representation += "'version': "        + repr(self.version)
         except AttributeError:
-            r += "'version': "        + "unknown"
+            representation += "'version': "        + "unknown"
         try:
-            r += ", 'users': "        + repr(self.users)
+            representation += ", 'users': "        + repr(self.users)
         except AttributeError:
-            r += ", 'users': "        + "unknown"
+            representation += ", 'users': "        + "unknown"
         try:
-            r += ", 'longest_user': " + repr(self.longest_user)
+            representation += ", 'longest_user': " + repr(self.longest_user)
         except AttributeError:
-            r += ", 'longest_user': " + "unknown"
+            representation += ", 'longest_user': " + "unknown"
         try:
-            r += ", 'single_votes': " + repr(self.single_votes)
+            representation += ", 'single_votes': " + repr(self.single_votes)
         except AttributeError:
-            r += ", 'single_votes': " + "unknown"
+            representation += ", 'single_votes': " + "unknown"
         try:
-            r += ", 'name': "         + repr(self.name)
+            representation += ", 'name': "         + repr(self.name)
         except AttributeError:
-            r += ", 'name': "         + "unknown"
+            representation += ", 'name': "         + "unknown"
         try:
-            r += ", 'description': "  + repr(self.description)
+            representation += ", 'description': "  + repr(self.description)
         except AttributeError:
-            r += ", 'description': "  + "unknown"
+            representation += ", 'description': "  + "unknown"
         try:
-            r += ", 'creator_if': "   + repr(self.creator_id)
+            representation += ", 'creator_if': "   + repr(self.creator_id)
         except AttributeError:
-            r += ", 'creator_id': "   + "unknown"
+            representation += ", 'creator_id': "   + "unknown"
         try:
-            r += ", 'days': "         + repr(self.days)
+            representation += ", 'days': "         + repr(self.days)
         except AttributeError:
-            r += ", 'days': "         + "unknown"
+            representation += ", 'days': "         + "unknown"
         try:
-            r += ", 'day_sum': "      + repr(self.day_sum)
+            representation += ", 'day_sum': "      + repr(self.day_sum)
         except AttributeError:
-            r += ", 'day_sum': "      + "unknown"
+            representation += ", 'day_sum': "      + "unknown"
         try:
-            r += ", 'messages': "     + repr(self.messages)
+            representation += ", 'messages': "     + repr(self.messages)
         except AttributeError:
-            r += ", 'messages': "     + "unknown"
+            representation += ", 'messages': "     + "unknown"
         try:
-            r += ", 'open': "         + repr(self.open)
+            representation += ", 'open': "         + repr(self.open)
         except AttributeError:
-            r += ", 'open': "         + "unknown"
-        r += "}"
-        return r
+            representation += ", 'open': "         + "unknown"
+        representation += "}"
+        return representation
 
     def get_id(self):
+        """Getter for this poll's uuid.
+        
+        Returns:
+            str: This poll's uuid.
+        """
         return self.id
     def new_id(self):   # really?
+        """Generate a new uuid for this poll.
+        
+        Returns:
+            str: The new uuid.
+        """
         self.id = str(uuid4())
         return self.id
     def get_creator_id(self):
+        """Getter for this poll's creator_id.
+        
+        Returns:
+            str: This poll's creator_id.
+        """
         return self.creator_id
     def get_name(self):
+        """Getter for this poll's name.
+        
+        Returns:
+            str: This poll's name.
+        """
         return self.name
     def set_name(self, name):
+        """Setter for this poll's name.
+        
+        Args:
+            name (str): The new name.
+        """
         self.name = name
     def get_description(self):
+        """Getter for this poll's description.
+        
+        Returns:
+            str: This poll's description.
+        """
         return self.description
     def set_description(self, description):
+        """Setter for this poll's description.
+        
+        Args:
+            description (str): The new description.
+        """
         self.description = description
     def get_days(self):
+        """Getter for this poll's days.
+        
+        Returns:
+            str: This poll's days.
+        """
         return self.days
     def knows_msg(self, msg):
+        """Check whether the poll is tracking this message.
+        
+        Args:
+            msg (list of int): The chat_id and message_id to check.
+        
+        Returns:
+            bool: Whether the poll is tracking this message
+        """
         return [msg.chat_id, msg.message_id] in self.messages
     def is_open(self):
+        """Check whether votes can be cast for this poll.
+        
+        Returns:
+            bool: Whether votes can be cast for this poll.
+        """
         return self.open
 
-    def vote(self, user, st):
+    def vote(self, user, str_):
+        """Add a user's vote to this poll.
+        
+        Args:
+            user (str): The user who is casting his vote.
+            str_ (str): The user's vote.
+        """
         if not self.open:
             return
         if not user in self.users:
             self.users.append(user)
             if len(user) > self.longest_user:
                 self.longest_user = len(user)
-        self.single_votes[user] = parser.reduce(st, self.days)
+        self.single_votes[user] = parser.reduce(str_, self.days)
 
     def to_text(self):
+        """Generate a tabulated view of the poll to show to users.
+        
+        Returns:
+            str: A tabulated view of the poll to show to users.
+        """
         try:
             out = f"*{self.name}*{' (closed)' if not self.open else ''} ({self.days})\n{self.description}\n```\n"
         except AttributeError:
@@ -124,6 +228,11 @@ class Poll:
         return out
 
     def update(self, bot):
+        """Update the messages the poll is keeping track of.
+        
+        Args:
+            bot (telegram.Bot): The Bot used to update the messages.
+        """
         if self.open:
             for msg in self.messages:
                 kbd = InlineKeyboardMarkup([[InlineKeyboardButton("vote", url=f'{bot.get_me().link}?start={self.id}')]])
@@ -138,13 +247,17 @@ class Poll:
                 except error.BadRequest:
                     pass
 
-    def update_or_print(self, bot, chat):
-        if self.messages:
-            self.update(bot)
-        else:
-            self.print(bot, chat)
-
     def print(self, bot, chat, votable=True):
+        """Print the poll to a chat returns that message.
+        
+        Args:
+            bot (telegram.Bot): The Bot used to send the message.
+            chat (telegram.Chat): The Chat to print the message in.
+            votable (bool, optional): Whether the message should include a "vote" button if it is votable.
+        
+        Returns:
+            list of int: The message sent.
+        """
         if(self.open and votable):
             kbd = InlineKeyboardMarkup([[InlineKeyboardButton("vote", url=f'{bot.get_me().link}?start={self.id}')]])
             msg = bot.send_message(chat.id, self.to_text(), parse_mode=ParseMode.MARKDOWN, reply_markup=kbd)
@@ -156,9 +269,23 @@ class Poll:
 
 
     def add_msg(self, msg):
+        """Add a message to keep track of.
+        
+        Args:
+            msg (list of int): The message's chat_id and message_id.
+        """
         self.messages.append(msg)
 
     def close(self, user_id, bot):
+        """End voting on the poll.
+        
+        Args:
+            user_id (int): The user trying to close the poll.
+            bot (telegram.Bot): The Bot used to update the tracked messages.
+        
+        Returns:
+            bool: Returns True on success, false on failure.
+        """
         if user_id == self.creator_id:
             self.open = False
             self.update(bot)
