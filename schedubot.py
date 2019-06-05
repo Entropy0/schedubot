@@ -121,7 +121,7 @@ def start(update, context):  # * --> DEFAULT
 
 def help(update, context):   # * --> *
     log_update(update, context)
-    update.message.reply_text(f'Welcome to *schedubot* (v{VERSION})!\n\nCurrently, this bot supports the following commands:\n\n/create Create a new poll.\n/add Add a poll you have created or participated in to current chat.\n/print Send a new message for a poll already added to this chat.\n/close Close a poll you created.\n/help Print this message.\n/reset Send this if the bot seems stuck or unresponsive.', parse_mode=ParseMode.MARKDOWN)
+    update.message.reply_text(f'Welcome to *schedubot* (v{VERSION})!\n\nCurrently, this bot supports the following commands:\n\n/create Create a new poll.\n/name Edit the name of one of your polls.\n/desc Edit the description of one of your polls.\n/add Add one of your polls or a poll you have participated in to a chat.\n/print Send a new message for a poll already added to this chat.\n/close Close one of your polls.\n/help Print this message.\n/reset Send this if the bot seems stuck or unresponsive.', parse_mode=ParseMode.MARKDOWN)
 
 def link(update, context):   # * --> *
     log_update(update, context)
@@ -646,8 +646,8 @@ def main():
     dp.add_handler(CommandHandler("add", add_poll_to_chat))              # DEFAULT --> CHOOSING_POLL_ADD
     dp.add_handler(CommandHandler("print", print_poll))                  # DEFAULT --> CHOOSING_POLL_PRINT
     dp.add_handler(CommandHandler("close", close))                       # DEFAULT --> CHOOSING_POLL_CLOSE
-    dp.add_handler(CommandHandler("edit_description", edit_description)) # DEFAULT --> CHOOSING_POLL_EDIT_DESCRIPTION
-    dp.add_handler(CommandHandler("edit_name", edit_name))               # DEFAULT --> CHOOSING_POLL_EDIT_NAME
+    dp.add_handler(CommandHandler("desc", edit_description)) # DEFAULT --> CHOOSING_POLL_EDIT_DESCRIPTION
+    dp.add_handler(CommandHandler("name", edit_name))               # DEFAULT --> CHOOSING_POLL_EDIT_NAME
     dp.add_handler(CommandHandler("cancel", reset))                      # *       --> DEFAULT
     dp.add_handler(CommandHandler("reset", reset))                       # *       --> DEFAULT
     dp.add_handler(CommandHandler("debug", debug))                       # *       --> *
