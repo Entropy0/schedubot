@@ -32,3 +32,4 @@ Currently, the bot supports the following commands:
 - /close Close one of your polls.
 - /help Print this message.
 - /reset Send this if the bot seems stuck or unresponsive.
+- /debug [mode ['file', 'chat', 'both'], level ['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG', 'NOTSET'], register, unregister, update, context, full, info]
