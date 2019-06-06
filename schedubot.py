@@ -210,6 +210,7 @@ class Schedubot():
         if 'create_name' in context.user_data:
             del context.user_data['create_name']
         if 'prompt' in context.user_data:
+            context.user_data['prompt'].edit_reply_markup(reply_markup=ReplyKeyboardRemove(selective=True))
             context.user_data['prompt'].delete()
             del context.user_data['prompt']
         context.bot.send_message(update.effective_user.id, "resetting...", reply_markup=ReplyKeyboardRemove(selective=True)).delete()
@@ -816,9 +817,9 @@ def main():
     parser.add_argument("--debug", help="Log every update.", action='store_true')
     parser.add_argument("--version", help="Show version information and exit.", action='version', version=VERSION)
     parser.add_argument("--logfile", help=f"Where to store debugging info. Defaults to {myself}_debug.", \
-        default=f'{sys.argv[0]}_debug')
+        default=f'{myself}_debug')
     parser.add_argument("--savefile", help=f"Where to store data neccesary for persistence. Defaults to {myself}_persistence.", \
-        default=f'{sys.argv[0]}_persistence')
+        default=f'{myself}_persistence')
     args = parser.parse_args()
     try:
         token = os.environ['SCHEDUBOT_TOKEN']
