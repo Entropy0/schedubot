@@ -19,7 +19,7 @@ optional arguments:
   --version            Show version information and exit.
   --logfile LOGFILE    Where to store debugging info. Defaults to ./schedubot_debug.
   --savefile SAVEFILE  Where to store data neccesary for persistence. Defaults to ./schedubot_persistence.
-
+  --admin ADMIN        Id of user that is allowed to change debug settings, if any.
 ```
 
 Currently, the bot supports the following commands:

@@ -17,15 +17,16 @@ from telegram import ParseMode, ReplyKeyboardMarkup, ReplyKeyboardRemove
 import poll
 from states import States
 from pollpicklepersistence import PollPicklePersistence
+from parser import markdown_safe
 
-VERSION = "0.1.1"
+VERSION = "0.1.2"
 
 class Schedubot():
 
     """A simple scheduling bot for Telegram groups.
     """
 
-    def __init__(self, token, persistence, debug_file='schedubot_debug', **kwargs):
+    def __init__(self, token, persistence, logger, debug_file='schedubot_debug', **kwargs):
         """__init__
 
         Args:
@@ -37,8 +38,12 @@ class Schedubot():
             **kwargs: Description
         """
         self.__verbosity = kwargs.get('verbosity', logging.INFO)
+        self.__debug_chats = []
+        self.__admin_id = kwargs.get('admin_id', -1)
         self.__poll_data = persistence.get_poll_data()
         self.__debug_file = debug_file
+        self.__debug_mode = 'file'
+        self.__logger = logger
         self.__persistence = persistence
 
         self.__updater = Updater(token, persistence=persistence, use_context=True)
@@ -57,6 +62,7 @@ class Schedubot():
         self.__dispatch.add_handler(CommandHandler("name", self.__edit_name))                    # DEFAULT --> CHOOSING_POLL_EDIT_NAME
         self.__dispatch.add_handler(CommandHandler("cancel", self.__reset))                      # *       --> DEFAULT
         self.__dispatch.add_handler(CommandHandler("reset", self.__reset))                       # *       --> DEFAULT
+        self.__dispatch.add_handler(CommandHandler("debug", self.__debug))                       # DEFAULT --> DEFAULT
 
         self.__dispatch.add_handler(MessageHandler(Filters.text, self.__default_handler))
 
@@ -68,31 +74,126 @@ class Schedubot():
         self.__updater.start_polling()
         self.__updater.idle()
 
+    def __debug_mode_func(self, *args):
+        if len(args[2]) < 3:
+            args[0].message.reply_text(f"Set debug mode is {self.__debug_mode}.")
+            return
+        if args[2][2] in ['file', 'chat', 'both']:
+            self.__debug_mode = args[2][2]
+            args[0].message.reply_text(f"Set debug mode to {self.__debug_mode}.")
+            return
+        else:
+            args[0].message.reply_text(f"{args[2][2]} is not a valid debug mode.")
+            return
+    def __debug_level(self, *args):
+        try:
+            self.__logger.setLevel(args[2][2])
+            self.__verbosity = getattr(logging, args[2][2])
+            args[0].message.reply_text(f"Set log level to {getattr(logging, args[2][2])}")
+            return
+        except ValueError:
+            args[0].message.reply_text(f"{args[2][2]} isn't a valid log level.")
+            return
+        except IndexError:
+            args[0].message.reply_text(f"Set log level is {logging.getLevelName(self.__verbosity)}")
+    def __debug_register(self, *args):
+        if not args[0].effective_chat in self.__debug_chats:
+            self.__debug_chats.append(args[0].effective_chat)
+            args[0].message.reply_text("Added this chat to debug channels.")
+            return
+        else:
+            args[0].message.reply_text("This chat is already a debug channel.")
+            return
+    def __debug_unregister(self, *args):
+        if args[0].effective_chat in self.__debug_chats:
+            self.__debug_chats.remove(args[0].effective_chat)
+            args[0].message.reply_text("Removed this chat from debug channels.")
+            return
+        else:
+            args[0].message.reply_text("This chat is not a debug channel.")
+            return
+    @staticmethod
+    def __debug_update_(*args):
+        args[0].message.reply_text(str(args[0]))
+    def __debug_context_(self, *args):
+        args[0].message.reply_text(self.__parse_context(args[0], args[1]))
+    def __debug_full(self, *args):
+        str_ = self.__parse_context(args[0], args[1])
+        str_ += "> raw update:\n"
+        str_ += str(args[0])
+        str_ += "\n"
+        args[0].message.reply_text(str_)
+    def __debug_info(self, *args):
+        str_ = ""
+        str_ += f"Set log level is `{logging.getLevelName(self.__verbosity)}`\n"
+        str_ += f"Set debug mode is `{self.__debug_mode}`.\n"
+        str_ += f"Log file is `{self.__debug_file}`.\n"
+        if self.__debug_chats == []:
+            str_ += "There are no chats registered as debug channel.\n"
+        else:
+            str_ += "Debug channels are:\n"
+            for chat in self.__debug_chats:
+                str_ += markdown_safe(f"\t{chat.id} {chat.title} {chat.username} {chat.link}\n")
+        args[0].message.reply_text(str_, parse_mode=ParseMode.MARKDOWN)
 
-    def __log_update(self, update, context):
-        """Log everything in an update.
 
+    def __debug(self, update, context):
+        """Allow the admin user to modify /debug settings.
+        
         Args:
             update (telegram.Update): The update that triggered this action.
             context (telegram.ext.CallbackContext): Context for this update.
-
-        Returns:
-            bool: Whether anything has actually been logged.
         """
-        if self.__verbosity > logging.DEBUG:
-            return False
+        #self.__log_update(update, context)
+        if 'conversation_state' in context.user_data and not context.user_data['conversation_state'] == States.DEFAULT:
+            self.__default_handler(update, context)
+            return
+        if update.effective_user.id != self.__admin_id:
+            update.message.reply_text("You are not the admin. Go away!")
+            return
+
+        args = update.message.text.split()
+
+        if len(args) < 2:
+            self.__debug_info(update, context, args)
+            return
+
+        switch = {
+            "mode": self.__debug_mode_func,
+            "level": self.__debug_level,
+            "register": self.__debug_register,
+            "unregister": self.__debug_unregister,
+            "update": self.__debug_update_,
+            "context": self.__debug_context_,
+            "full": self.__debug_full,
+            "info": self.__debug_info
+        }
+        
+        func = switch.get(args[1], self.__debug_info)
+        func(update, context, args)
+
+    def __parse_context(self, update, context):
+        """Parse context for logging purposes.
+        
+        Args:
+            update (telegram.Update): The update that triggered this action.
+            context (telegram.ext.CallbackContext): Context for this update.
+        
+        Returns:
+            str: The parsed context.
+        """
         str_ = ""
         try:
-            str_ += f"> {update.message.from_user.name} called {inspect.currentframe().f_back.f_code.co_name} by sending the following:\n"
+            str_ += f"> {update.message.from_user.name} called {inspect.currentframe().f_back.f_back.f_code.co_name} by sending the following:\n"
             str_ += update.message.text
             str_ += "\n"
         except AttributeError:
             try:
-                str_ += f"> {update.callback_query.from_user.name} called {inspect.currentframe().f_back.f_code.co_name} by clicking a button.\n"
+                str_ += f"> {update.callback_query.from_user.name} called {inspect.currentframe().f_back.f_back.f_code.co_name} by clicking a button.\n"
             except AttributeError:
-                str_ += f"> {update.effective_user.name} called {inspect.currentframe().f_back.f_code.co_name} via unknown means.\n"
+                str_ += f"> {update.effective_user.name} called {inspect.currentframe().f_back.f_back.f_code.co_name} via unknown means.\n"
         try:
-            str_ += f"> (conversation_state: {context.user_data['conversation_state']} - {States(context.user_data['conversation_state'])})\n"
+            str_ += f"> (conversation_state: {pprint.pformat(context.user_data['conversation_state'])})\n"
         except (KeyError, ValueError):
             str_ += f"> (conversation_state: unknown)\n"
         try:
@@ -116,6 +217,21 @@ class Schedubot():
             str_ += "\n"
         except AttributeError:
             str_ += f"> Could not find args.\n"
+        return str_
+
+    def __log_update(self, update, context):
+        """Log everything in an update.
+
+        Args:
+            update (telegram.Update): The update that triggered this action.
+            context (telegram.ext.CallbackContext): Context for this update.
+
+        Returns:
+            bool: Whether anything has actually been logged.
+        """
+        if self.__verbosity > logging.DEBUG:
+            return False
+        str_ = self.__parse_context(update, context)
         str_ += "> raw update:\n"
         str_ += str(update)
         str_ += "\n"
@@ -128,26 +244,37 @@ class Schedubot():
         Args:
             update (telegram.Update): The update that triggered this action.
             error (Exception): The triggering error.
+
+        Returns:
+            bool: Whether anything has actually been logged.
         """
         if self.__verbosity > logging.INFO:
             return
-        str_ = f"> ERROR: {error}\n"
+        str_ = f"> ERROR: {repr(error)} - {error}\n"
         str_ += f"> raw update:\n{str(update)}\n"
         self.__log_text(str_)
 
     def __log_text(self, str_):
-        """Log arbitrary text
+        """Log arbitrary text.
 
         Args:
             str_ (str): String to log.
+
+        Returns:
+            bool: Whether anything has actually been logged.
         """
         if self.__verbosity > logging.INFO:
             return False
-        with copen(self.__debug_file, 'a', 'utf-8') as dbf:
-            dbf.write("\n" + "-"*24 + "\n")
-            dbf.write(f">  {datetime.now()}\n")
-            dbf.write(str_)
-            dbf.write("\n\n\n")
+        log = "\n" + "-"*24 + "\n"
+        log += f">  {datetime.now()}\n"
+        log += str_
+        log += "\n\n\n"
+        if self.__debug_mode in [ 'file', 'both' ]:
+            with copen(self.__debug_file, 'a', 'utf-8') as dbf:
+                dbf.write(log)
+        if self.__debug_mode in [ 'chat', 'both']:
+            for chat in self.__debug_chats:
+                chat.send_message(log)
         return True
 
     def __start(self, update, context):  # * --> DEFAULT
@@ -820,6 +947,7 @@ def main():
         default=f'{myself}_debug')
     parser.add_argument("--savefile", help=f"Where to store data neccesary for persistence. Defaults to {myself}_persistence.", \
         default=f'{myself}_persistence')
+    parser.add_argument("--admin", help="Id of user that is allowed to change debug settings, if any.", default=-1, type=int)
     args = parser.parse_args()
     try:
         token = os.environ['SCHEDUBOT_TOKEN']
@@ -828,6 +956,7 @@ def main():
         sys.exit(1)
 
     logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+    logger = logging.getLogger(__name__)
     if args.debug:
         verbosity = logging.DEBUG
     else:
@@ -835,7 +964,7 @@ def main():
 
     persistence = PollPicklePersistence(filename=args.savefile)
 
-    schedubot = Schedubot(token, persistence, args.logfile, verbosity=verbosity)
+    schedubot = Schedubot(token, persistence, logger, args.logfile, verbosity=verbosity, admin_id=args.admin)
     schedubot.start()
 
 
