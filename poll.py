@@ -11,7 +11,7 @@ import parser
 
 from telegram import ParseMode, InlineKeyboardButton, InlineKeyboardMarkup, error
 
-VERSION = 0.2
+VERSION = 0.3
 
 class Poll:
 
