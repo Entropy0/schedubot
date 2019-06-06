@@ -46,8 +46,8 @@ class Poll:
         self.users = []
         self.longest_user = 0
         self.single_votes = dict()
-        self.name = name
-        self.description = description
+        self.name = parser.markdown_safe(name)
+        self.description = parser.markdown_safe(description)
         self.creator_id = creator_id
         self.days = int(days)
         self.day_sum = [0] * self.days

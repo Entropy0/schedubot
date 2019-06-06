@@ -1,5 +1,5 @@
 #!/usr/bin/env python3.6
-"""Parse user input for the Poll class.
+"""Helper functions.
 
 Attributes:
     ASCII_SYMBOLS (set): Valid input symbols. Everything else is str_ripped.
@@ -76,3 +76,17 @@ def parse(str_):
     for char in str_:
         out += UNICODE_SYMBOLS.get(str(char), '♾')
     return out
+
+def markdown_safe(str_):
+    """Replace any character that might make Telegram's markdown parser unhappy.
+    
+    Args:
+        str_ (str): String to make markdown safe.
+    
+    Returns:
+        str: Markdown safe version of input string.
+    """
+    str_ = str_.replace('_', '\\_')
+    str_ = str_.replace('*', '\\*')
+    str_ = str_.replace('`', '\\`')
+    return str_
