@@ -46,8 +46,8 @@ class Poll:
         self.users = []
         self.longest_user = 0
         self.single_votes = dict()
-        self.name = parser.markdown_safe(name)
-        self.description = parser.markdown_safe(description)
+        self.name = name
+        self.description = description
         self.creator_id = creator_id
         self.days = int(days)
         self.day_sum = [0] * self.days
@@ -212,19 +212,16 @@ class Poll:
         Returns:
             str: A tabulated view of the poll to show to users.
         """
-        try:
-            out = f"*{self.name}*{' (closed)' if not self.open else ''} ({self.days})\n{self.description}\n```\n"
-        except AttributeError:
-            self.description = ""
-            out = f"*{self.name}* ({self.days})\n\n```\n"
+        out = f"<b>{parser.html_safe(self.name)}</b>{' (closed)' if not self.open else ''} ({self.days})\n{parser.html_safe(self.description)}\n<pre>\n"
         self.day_sum = [0] * self.days
         for user in self.users:
-            out += f"{user:{self.longest_user}}: {parser.parse(self.single_votes[user])}\n"
+            user_htmlsafe = parser.html_safe(f'{user:{self.longest_user}}')
+            out += f"{user_htmlsafe}: {parser.parse(self.single_votes[user])}\n"
             for i in range(self.days):
                 if self.single_votes[user][i:i+1] == '+':
                     self.day_sum[i] += 1
         out += "\n"
-        out += " " * (self.longest_user + 2) + parser.parse(self.day_sum) + "```"
+        out += " " * (self.longest_user + 2) + parser.parse(self.day_sum) + "</pre>"
         return out
 
     def update(self, bot):
@@ -237,13 +234,13 @@ class Poll:
             for msg in self.messages:
                 kbd = InlineKeyboardMarkup([[InlineKeyboardButton("vote", url=f'{bot.get_me().link}?start={self.id}')]])
                 try:
-                    bot.edit_message_text(self.to_text(), chat_id=msg[0], message_id=msg[1], parse_mode=ParseMode.MARKDOWN, reply_markup=kbd)
+                    bot.edit_message_text(self.to_text(), chat_id=msg[0], message_id=msg[1], parse_mode=ParseMode.HTML, reply_markup=kbd)
                 except error.BadRequest:
                     pass
         else:
             for msg in self.messages:
                 try:
-                    bot.edit_message_text(self.to_text(), chat_id=msg[0], message_id=msg[1], parse_mode=ParseMode.MARKDOWN)
+                    bot.edit_message_text(self.to_text(), chat_id=msg[0], message_id=msg[1], parse_mode=ParseMode.HTML)
                 except error.BadRequest:
                     pass
 
@@ -260,10 +257,10 @@ class Poll:
         """
         if(self.open and votable):
             kbd = InlineKeyboardMarkup([[InlineKeyboardButton("vote", url=f'{bot.get_me().link}?start={self.id}')]])
-            msg = bot.send_message(chat.id, self.to_text(), parse_mode=ParseMode.MARKDOWN, reply_markup=kbd)
+            msg = bot.send_message(chat.id, self.to_text(), parse_mode=ParseMode.HTML, reply_markup=kbd)
             self.add_msg([msg.chat_id, msg.message_id])
         else:
-            msg = bot.send_message(chat.id, self.to_text(), parse_mode=ParseMode.MARKDOWN, reply_markup=None)
+            msg = bot.send_message(chat.id, self.to_text(), parse_mode=ParseMode.HTML, reply_markup=None)
             self.add_msg([msg.chat_id, msg.message_id])
         return msg
 

@@ -90,3 +90,17 @@ def markdown_safe(str_):
     str_ = str_.replace('*', '\\*')
     str_ = str_.replace('`', '\\`')
     return str_
+
+def html_safe(str_):
+    """Replace any character that might make Telegram's html parser unhappy.
+    
+    Args:
+        str_ (str): String to make html safe.
+    
+    Returns:
+        str: html safe version of input string.
+    """
+    str_ = str_.replace('<', '&lt;')
+    str_ = str_.replace('>', '&gt;')
+    str_ = str_.replace('&', '&amp;')
+    return str_
