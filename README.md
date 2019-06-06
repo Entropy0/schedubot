@@ -15,7 +15,7 @@ Expects your bot API token in an environment variable called SCHEDUBOT_TOKEN
 
 optional arguments:
   -h, --help           show this help message and exit
-  --debug              Log every update.
+  --debug              Set logging level to DEBUG: Log every update.
   --version            Show version information and exit.
   --logfile LOGFILE    Where to store debugging info. Defaults to ./schedubot_debug.
   --savefile SAVEFILE  Where to store data neccesary for persistence. Defaults to ./schedubot_persistence.
